@@ -4,8 +4,7 @@
  */
 
 const RAZORPAY_CONFIG = {
-    // Use environment variables in production
-    KEY_ID: process.env?.RAZORPAY_KEY_ID || 'rzp_test_ILzaLVLAtji6G9',
+    
     
     // Payment options
     CURRENCY: 'INR',
@@ -59,3 +58,4 @@ function createRazorpayOptions(booking, user) {
         }
     };
 }
+
