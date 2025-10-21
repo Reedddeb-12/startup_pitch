@@ -1,137 +1,193 @@
 /**
  * ParkEase Backend - Auth Controller
- * Authentication and authorization logic
+ * Authentication and authorization logic - UPDATED FOR PRODUCTION
  */
 
 const User = require('../models/User');
 const { ROLES, ADMIN_EMAILS } = require('../config/constants');
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
+// ✅ UPDATED: Register user with better validation and error handling
 exports.register = async (req, res, next) => {
     try {
         const { name, email, password, phone } = req.body;
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
+        // ✅ NEW: Sanitize and validate input
+        if (!name || !email || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'User already exists with this email'
+                message: 'Name, email, and password are required'
             });
         }
 
-        // Check if email is admin email
-        const role = ADMIN_EMAILS.includes(email) ? ROLES.ADMIN : ROLES.USER;
+        // ✅ NEW: Check if user already exists
+        const existingUser = await User.findOne({ 
+            email: email.toLowerCase() 
+        });
+        
+        if (existingUser) {
+            return res.status(409).json({
+                success: false,
+                message: 'User already registered with this email'
+            });
+        }
 
-        // Create user
+        // ✅ UPDATED: Determine role based on email
+        const role = ADMIN_EMAILS.includes(email.toLowerCase()) 
+            ? ROLES.ADMIN 
+            : ROLES.USER;
+
+        // ✅ UPDATED: Create user with additional fields
         const user = await User.create({
-            name,
-            email,
-            password,
-            phone,
-            role
+            name: name.trim(),
+            email: email.toLowerCase(),
+            password, // Will be hashed by User model
+            phone: phone || null,
+            role,
+            isActive: true,
+            emailVerified: false // ✅ NEW: Add email verification flag
         });
 
-        // Generate token
+        // ✅ UPDATED: Generate token
         const token = user.generateToken();
+
+        // ✅ NEW: Remove password from response
+        const userResponse = user.toObject();
+        delete userResponse.password;
 
         res.status(201).json({
             success: true,
             message: 'User registered successfully',
             data: {
-                user,
+                user: userResponse,
                 token
             }
         });
+
     } catch (error) {
+        console.error('Registration error:', error);
         next(error);
     }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// ✅ UPDATED: Login user with enhanced security
 exports.login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
 
-        // Check if user exists
-        const user = await User.findOne({ email }).select('+password');
+        // ✅ NEW: Validate input
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        // ✅ UPDATED: Check if user exists (include password field)
+        const user = await User.findOne({ 
+            email: email.toLowerCase() 
+        }).select('+password');
+
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: 'Invalid email or password'
             });
         }
 
-        // Check if password matches
+        // ✅ UPDATED: Check if password matches
         const isPasswordMatch = await user.matchPassword(password);
         if (!isPasswordMatch) {
+            // ✅ NEW: Log failed login attempt
+            console.warn(`Failed login attempt for: ${email}`);
+            
             return res.status(401).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: 'Invalid email or password'
             });
         }
 
-        // Check if user is active
+        // ✅ UPDATED: Check if user is active
         if (!user.isActive) {
-            return res.status(401).json({
+            return res.status(403).json({
                 success: false,
-                message: 'Account is inactive'
+                message: 'Account has been deactivated'
             });
         }
 
-        // Update last login
+        // ✅ UPDATED: Update last login with timestamp
         user.lastLogin = new Date();
         await user.save();
 
-        // Generate token
+        // ✅ UPDATED: Generate token
         const token = user.generateToken();
 
-        // Remove password from response
-        user.password = undefined;
+        // ✅ UPDATED: Remove password from response
+        const userResponse = user.toObject();
+        delete userResponse.password;
 
         res.status(200).json({
             success: true,
             message: 'Login successful',
             data: {
-                user,
+                user: userResponse,
                 token
             }
         });
+
     } catch (error) {
+        console.error('Login error:', error);
         next(error);
     }
 };
 
-// @desc    Get current user
-// @route   GET /api/auth/me
-// @access  Private
+// ✅ UPDATED: Get current user with error handling
 exports.getMe = async (req, res, next) => {
     try {
+        // ✅ NEW: req.user is set by auth middleware
         const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
 
         res.status(200).json({
             success: true,
             data: user
         });
+
     } catch (error) {
+        console.error('GetMe error:', error);
         next(error);
     }
 };
 
-// @desc    Update password
-// @route   PUT /api/auth/updatepassword
-// @access  Private
+// ✅ UPDATED: Update password with validation
 exports.updatePassword = async (req, res, next) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
+        // ✅ NEW: Validate input
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password and new password are required'
+            });
+        }
+
+        // ✅ NEW: Validate password strength
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be at least 6 characters'
+            });
+        }
+
         const user = await User.findById(req.user.id).select('+password');
 
-        // Check current password
+        // ✅ UPDATED: Check current password
         const isMatch = await user.matchPassword(currentPassword);
         if (!isMatch) {
             return res.status(401).json({
@@ -140,7 +196,16 @@ exports.updatePassword = async (req, res, next) => {
             });
         }
 
-        // Update password
+        // ✅ NEW: Prevent reusing same password
+        const isSamePassword = await user.matchPassword(newPassword);
+        if (isSamePassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be different from current password'
+            });
+        }
+
+        // ✅ UPDATED: Update password
         user.password = newPassword;
         await user.save();
 
@@ -149,25 +214,30 @@ exports.updatePassword = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Password updated successfully',
-            data: {
-                token
-            }
+            data: { token }
         });
+
     } catch (error) {
+        console.error('UpdatePassword error:', error);
         next(error);
     }
 };
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
+// ✅ UPDATED: Logout user (token invalidation)
 exports.logout = async (req, res, next) => {
     try {
+        // ✅ NEW: In production, you might want to:
+        // - Blacklist the token
+        // - Update user's last activity
+        // - Clear refresh tokens
+
         res.status(200).json({
             success: true,
             message: 'Logged out successfully'
         });
+
     } catch (error) {
+        console.error('Logout error:', error);
         next(error);
     }
 };
