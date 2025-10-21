@@ -4,9 +4,7 @@
  */
 
 // Get API base URL - Change this to your backend URL
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:5000/api'
-    : 'https://parkease-backend.vercel.app/api'; // ✅ CHANGE THIS TO YOUR BACKEND URL
+const API_BASE_URL = 'https://your-backend-url.vercel.app/api';
 
 let authToken = null;
 
