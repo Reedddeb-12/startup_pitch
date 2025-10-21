@@ -48,7 +48,7 @@ function closeAddLotModalHandler() {
 /**
  * Handle adding a new parking lot
  */
-function handleAddLot(e) {
+async function handleAddLot(e) {
     e.preventDefault();
     const formData = getFormData('addLotForm');
 
@@ -57,49 +57,73 @@ function handleAddLot(e) {
         return;
     }
 
-    const newLot = {
-        id: generateId(),
+    const formValues = {
         name: formData.get('name').trim(),
         address: formData.get('address').trim(),
         distance: formData.get('distance').trim(),
         totalSlots: parseInt(formData.get('totalSlots'), 10),
-        availableSlots: parseInt(formData.get('totalSlots'), 10),
         pricePerHour: parseFloat(formData.get('pricePerHour')),
         lat: parseFloat(formData.get('lat')),
         lon: parseFloat(formData.get('lon')),
         amenities: formData.get('amenities')
             .split(',')
             .map(a => a.trim())
-            .filter(a => a),
-        rating: (4.0 + Math.random() * 0.9).toFixed(1),
-        createdAt: getCurrentDateTime().fullDate
+            .filter(a => a)
     };
 
     // Validate parking lot data
-    const validation = validateParkingLot(newLot);
+    const validation = validateParkingLot(formValues);
     if (!validation.isValid) {
         showError(validation.errors.join(', '));
         return;
     }
 
-    // Add to state
-    addParkingLot(newLot);
-
-    // Reset and close modal
-    resetForm('addLotForm');
-    closeAddLotModalHandler();
-
-    // Re-render admin view
-    render();
+    try {
+        // Call API to create parking lot
+        const response = await window.API.parkingLot.create(formValues);
+        
+        if (response.success) {
+            showSuccess('Parking lot added successfully!');
+            resetForm('addLotForm');
+            closeAddLotModalHandler();
+            
+            // Reload parking lots
+            const lotsResponse = await window.API.parkingLot.getAll();
+            if (lotsResponse.success) {
+                setState({ parkingLots: lotsResponse.data });
+            }
+            
+            render();
+        }
+    } catch (error) {
+        console.error('Error adding parking lot:', error);
+        showError(error.message || 'Failed to add parking lot');
+    }
 }
 
 /**
  * Handle deleting a parking lot
  */
-function handleDeleteLot(lotId) {
+async function handleDeleteLot(lotId) {
     if (confirm('Are you sure you want to delete this parking lot?')) {
-        removeParkingLot(lotId);
-        render();
+        try {
+            const response = await window.API.parkingLot.delete(lotId);
+            
+            if (response.success) {
+                showSuccess('Parking lot deleted successfully!');
+                
+                // Reload parking lots
+                const lotsResponse = await window.API.parkingLot.getAll();
+                if (lotsResponse.success) {
+                    setState({ parkingLots: lotsResponse.data });
+                }
+                
+                render();
+            }
+        } catch (error) {
+            console.error('Error deleting parking lot:', error);
+            showError(error.message || 'Failed to delete parking lot');
+        }
     }
 }
 
@@ -150,9 +174,9 @@ function getAdminStats() {
     const parkingLots = getStateProperty('parkingLots');
     const bookings = getStateProperty('bookings');
 
-    const totalSlots = parkingLots.reduce((sum, lot) => sum + lot.totalSlots, 0);
-    const occupiedSlots = totalSlots - parkingLots.reduce((sum, lot) => sum + lot.availableSlots, 0);
-    const totalRevenue = bookings.reduce((sum, b) => sum + (b.status !== 'cancelled' ? b.amount : 0), 0);
+    const totalSlots = parkingLots.reduce((sum, lot) => sum + (lot.totalSlots || 0), 0);
+    const occupiedSlots = totalSlots - parkingLots.reduce((sum, lot) => sum + (lot.availableSlots || 0), 0);
+    const totalRevenue = bookings.reduce((sum, b) => sum + (b.status !== 'cancelled' ? (b.amount || 0) : 0), 0);
     const totalBookings = bookings.filter(b => b.status !== 'cancelled').length;
     const activeBookings = bookings.filter(b => b.status === 'active').length;
 
@@ -177,13 +201,13 @@ function getLotStats(lotId) {
     if (!lot) return null;
 
     const bookings = getStateProperty('bookings')
-        .filter(b => b.lot.id === lotId && b.status !== 'cancelled');
+        .filter(b => b.lot && b.lot.id === lotId && b.status !== 'cancelled');
 
     return {
         ...lot,
         totalBookings: bookings.length,
-        revenue: bookings.reduce((sum, b) => sum + b.amount, 0),
-        occupancyRate: ((lot.totalSlots - lot.availableSlots) / lot.totalSlots * 100).toFixed(1)
+        revenue: bookings.reduce((sum, b) => sum + (b.amount || 0), 0),
+        occupancyRate: lot.totalSlots > 0 ? ((lot.totalSlots - lot.availableSlots) / lot.totalSlots * 100).toFixed(1) : 0
     };
 }
 
@@ -196,7 +220,7 @@ function exportAdminData() {
     const bookings = getStateProperty('bookings');
 
     const data = {
-        exportDate: getCurrentDateTime().fullDate,
+        exportDate: new Date().toLocaleString(),
         statistics: stats,
         parkingLots: lots,
         bookings: bookings.filter(b => b.status !== 'cancelled')
