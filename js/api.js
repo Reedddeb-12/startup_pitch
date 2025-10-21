@@ -3,12 +3,14 @@
  * Production-ready API integration with error handling
  */
 
-// Get API base URL from environment or use default
+// Get API base URL - Change this to your backend URL
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:5000/api'
-    : 'https://parkease-backend.vercel.app/api'; // Replace with your backend URL
+    : 'https://parkease-backend.vercel.app/api'; // ✅ CHANGE THIS TO YOUR BACKEND URL
 
 let authToken = null;
+
+console.log('🔗 API Base URL:', API_BASE_URL);
 
 /**
  * Safe localStorage access
@@ -82,6 +84,7 @@ async function apiRequest(endpoint, options = {}) {
         if (response.status === 401) {
             clearAuthToken();
             if (typeof setView === 'function') {
+                showError('Session expired. Please login again.');
                 setView('login');
             }
         }
@@ -98,7 +101,12 @@ async function apiRequest(endpoint, options = {}) {
         return data;
 
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error:', {
+            endpoint,
+            method: options.method || 'GET',
+            status: error.status,
+            message: error.message
+        });
         throw error;
     }
 }
@@ -327,3 +335,5 @@ window.API = {
     clearAuthToken,
     API_BASE_URL
 };
+
+console.log('✅ API Module Loaded');
