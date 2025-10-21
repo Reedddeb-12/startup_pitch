@@ -27,10 +27,11 @@ app.use(helmet());
 const corsOptions = {
     origin: function (origin, callback) {
         const allowedOrigins = [
-            'http://localhost:3000',
-            'http://localhost:5173', // Vite default
-            'http://127.0.0.1:3000',
-            process.env.CLIENT_URL, // Production frontend URL
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://reedddeb-12.github.io',  // ✅ ADD THIS
+    process.env.CLIENT_URL
+];
             'https://parkease-frontend.vercel.app' // Example: update with your actual URL
         ].filter(Boolean);
 
@@ -126,3 +127,4 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+
