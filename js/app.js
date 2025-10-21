@@ -142,9 +142,52 @@ function render() {
 }
 
 /**
+ * ✅ NEW: Load initial parking lots data
+ */
+async function loadInitialData() {
+    try {
+        console.log('📦 Loading initial parking lots data...');
+        const response = await window.API.parkingLot.getAll();
+        
+        if (response.success && response.data) {
+            setState({ parkingLots: response.data });
+            console.log(`✅ Loaded ${response.data.length} parking lots`);
+            return true;
+        } else {
+            console.warn('No parking lots found or empty response');
+            return false;
+        }
+    } catch (error) {
+        console.error('Failed to load parking lots:', error);
+        showError('Could not load parking lots. Please check your backend connection.');
+        return false;
+    }
+}
+
+/**
+ * ✅ NEW: Restore user session from stored token
+ */
+async function restoreSessionFromToken() {
+    try {
+        console.log('🔄 Restoring session from token...');
+        const response = await window.API.auth.getMe();
+        
+        if (response.success && response.data) {
+            setUser(response.data);
+            console.log('✅ Session restored for:', response.data.email);
+            return true;
+        }
+    } catch (error) {
+        console.warn('Failed to restore session:', error);
+        window.API.clearAuthToken();
+    }
+    return false;
+}
+
+/**
  * ✅ UPDATED: Initialize the application with comprehensive error handling
  */
-function initApp() {
+async function initApp() {
     console.log('=== ParkEase App Initializing ===');
     
     try {
@@ -153,7 +196,6 @@ function initApp() {
             throw new Error('API module not loaded');
         }
 
-        // ✅ NEW: Log initial state
         console.log('Initial State:', getState());
         
         // Set initial view to login
@@ -170,32 +212,28 @@ function initApp() {
         
         // ✅ NEW: Restore authentication token if available
         const token = window.API.getAuthToken();
-        if (token && !getUser()) {
-            console.log('Restoring session from token...');
-            restoreSessionFromToken();
+        if (token) {
+            console.log('🔑 Found stored token, attempting to restore session...');
+            const sessionRestored = await restoreSessionFromToken();
+            
+            if (sessionRestored) {
+                // Load parking lots before going to home
+                await loadInitialData();
+                setView('home');
+            } else {
+                // Token invalid, go to login
+                setView('login');
+            }
+        } else {
+            // No token, load parking lots anyway for display
+            await loadInitialData();
         }
         
         console.log('=== ParkEase App Ready ===');
         
     } catch (error) {
         console.error('Failed to initialize app:', error);
-        alert('Failed to initialize application. Please refresh the page.');
-    }
-}
-
-/**
- * ✅ NEW: Restore user session from stored token
- */
-async function restoreSessionFromToken() {
-    try {
-        const response = await window.API.auth.getMe();
-        if (response.success && response.data) {
-            setUser(response.data);
-            setView('home');
-        }
-    } catch (error) {
-        console.warn('Failed to restore session:', error);
-        window.API.clearAuthToken();
+        showError('Failed to initialize application. Please refresh the page.');
     }
 }
 
@@ -205,7 +243,6 @@ async function restoreSessionFromToken() {
 function setupGlobalErrorHandler() {
     window.addEventListener('error', (event) => {
         console.error('Global error caught:', event.error);
-        // ✅ NEW: Don't show error for expected errors
         if (event.error && !event.error.handled) {
             showError('An unexpected error occurred');
         }
@@ -228,7 +265,6 @@ function setupResizeListener() {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
             console.log('Window resized');
-            // Re-render if needed for responsive changes
             const currentState = getState();
             if (['home', 'admin'].includes(currentState.currentView)) {
                 render();
@@ -259,6 +295,35 @@ function debugState() {
     console.log('Bookings:', state.bookings);
     console.log('Search Query:', state.searchQuery);
     console.log('========================');
+}
+
+/**
+ * ✅ NEW: Enhanced error and success notifications
+ */
+function showError(message) {
+    console.error('❌ Error:', message);
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 left-4 bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-slideInUp';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function showSuccess(message) {
+    console.log('✅ Success:', message);
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 left-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-slideInUp';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 /**
@@ -312,7 +377,6 @@ document.addEventListener('visibilitychange', () => {
         console.log('App backgrounded');
     } else {
         console.log('App foregrounded');
-        // ✅ NEW: Refresh critical data if needed
         if (isAuthenticated()) {
             const view = getStateProperty('currentView');
             if (view === 'home') {
@@ -344,9 +408,10 @@ window.ParkEase = {
     debugState,
     logAppInfo,
     APP_INFO,
-    // ✅ NEW: Add helpful console functions
     showError,
-    showSuccess: typeof showSuccess !== 'undefined' ? showSuccess : alert
+    showSuccess,
+    loadInitialData,
+    restoreSessionFromToken
 };
 
 console.log('💡 Tip: Type "ParkEase.debugState()" in console to view app state');
