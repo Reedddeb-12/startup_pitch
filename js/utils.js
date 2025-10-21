@@ -7,6 +7,7 @@
  * Format currency (Indian Rupees)
  */
 function formatCurrency(amount) {
+    if (typeof amount !== 'number') amount = parseFloat(amount) || 0;
     return `₹${amount.toFixed(2)}`;
 }
 
@@ -46,7 +47,7 @@ function getCurrentDateTime() {
  * Generate unique ID
  */
 function generateId() {
-    return Date.now();
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 /**
@@ -69,13 +70,15 @@ function validateEmail(email) {
  */
 function validatePhone(phone) {
     const phoneRegex = /^[0-9]{10}$/;
-    return phoneRegex.test(phone.replace(/\D/g, ''));
+    const digitsOnly = phone.replace(/\D/g, '');
+    return phoneRegex.test(digitsOnly);
 }
 
 /**
  * Calculate parking slot occupancy percentage
  */
 function calculateOccupancyPercentage(availableSlots, totalSlots) {
+    if (totalSlots === 0) return 0;
     return ((totalSlots - availableSlots) / totalSlots) * 100;
 }
 
@@ -83,6 +86,7 @@ function calculateOccupancyPercentage(availableSlots, totalSlots) {
  * Calculate available slot percentage
  */
 function calculateAvailablePercentage(availableSlots, totalSlots) {
+    if (totalSlots === 0) return 0;
     return (availableSlots / totalSlots) * 100;
 }
 
@@ -101,7 +105,7 @@ function debounce(func, delay) {
  * Scroll to top of page
  */
 function scrollToTop() {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /**
@@ -217,7 +221,150 @@ function filterByQuery(items, query, searchFields) {
     const lowerQuery = query.toLowerCase();
     return items.filter(item =>
         searchFields.some(field =>
-            String(item[field]).toLowerCase().includes(lowerQuery)
+            String(item[field] || '').toLowerCase().includes(lowerQuery)
         )
     );
+}
+
+/**
+ * Check if user is authenticated
+ */
+function isAuthenticated() {
+    return isUserLoggedIn() && window.API.getAuthToken();
+}
+
+/**
+ * Check if user is admin
+ */
+function isAdmin() {
+    const user = getUser();
+    return user && (user.role === 'admin' || user.role === 'ADMIN');
+}
+
+/**
+ * Format booking amount
+ */
+function formatBookingAmount(pricePerHour, duration) {
+    if (!pricePerHour || !duration) return '₹0.00';
+    return formatCurrency(pricePerHour * duration);
+}
+
+/**
+ * Get time difference in hours
+ */
+function getTimeDifferenceInHours(startTime, endTime) {
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    return Math.round((end - start) / (1000 * 60 * 60));
+}
+
+/**
+ * Check if date is today
+ */
+function isToday(date) {
+    const today = new Date();
+    const checkDate = new Date(date);
+    return checkDate.getDate() === today.getDate() &&
+           checkDate.getMonth() === today.getMonth() &&
+           checkDate.getFullYear() === today.getFullYear();
+}
+
+/**
+ * Check if date is in the past
+ */
+function isPastDate(date) {
+    return new Date(date) < new Date();
+}
+
+/**
+ * Add hours to date
+ */
+function addHours(date, hours) {
+    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+/**
+ * Format date to readable string (DD MMM YYYY)
+ */
+function formatDateFull(date) {
+    return new Date(date).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
+/**
+ * Create success response
+ */
+function successResponse(data, message = 'Success') {
+    return {
+        success: true,
+        message,
+        data
+    };
+}
+
+/**
+ * Create error response
+ */
+function errorResponse(message = 'Error occurred', statusCode = 500) {
+    return {
+        success: false,
+        message,
+        statusCode
+    };
+}
+
+/**
+ * Sleep/delay function
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Check if object is empty
+ */
+function isEmpty(obj) {
+    return Object.keys(obj).length === 0;
+}
+
+/**
+ * Convert array to object
+ */
+function arrayToObject(array, keyField = 'id') {
+    return array.reduce((obj, item) => {
+        obj[item[keyField]] = item;
+        return obj;
+    }, {});
+}
+
+/**
+ * Sort array of objects by field
+ */
+function sortByField(array, field, order = 'asc') {
+    return array.sort((a, b) => {
+        if (order === 'asc') {
+            return a[field] > b[field] ? 1 : -1;
+        } else {
+            return a[field] < b[field] ? 1 : -1;
+        }
+    });
+}
+
+/**
+ * Get initials from name
+ */
+function getInitials(name) {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+/**
+ * Truncate string
+ */
+function truncate(str, length = 50) {
+    if (!str) return '';
+    return str.length > length ? str.substring(0, length) + '...' : str;
 }
