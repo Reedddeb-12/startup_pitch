@@ -1,26 +1,31 @@
 /**
  * ParkEase - Main Application
- * Core app logic and view management
- * This is the heart of the application
+ * Core app logic and view management - UPDATED FOR PRODUCTION
  */
 
 /**
- * Set current view
- * @param {string} viewName - Name of the view to display
+ * ✅ UPDATED: Set current view with validation and auth checks
  */
 function setView(viewName) {
     const currentState = getState();
     
-    // Validate view exists
+    // ✅ NEW: Validate view exists
     const validViews = ['login', 'home', 'details', 'payment', 'ticket', 'bookings', 'profile', 'admin'];
     if (!validViews.includes(viewName)) {
         console.error('Invalid view:', viewName);
         return;
     }
 
-    // Redirect to login if trying to access protected views without authentication
+    // ✅ NEW: Redirect to login if trying to access protected views
     if (viewName !== 'login' && !isAuthenticated()) {
-        console.warn('Attempted to access protected view without authentication');
+        console.warn('Attempted to access protected view without authentication:', viewName);
+        setView('login');
+        return;
+    }
+
+    // ✅ NEW: Redirect to login if trying to access admin without proper role
+    if (viewName === 'admin' && !isAdmin()) {
+        console.warn('Attempted to access admin view without admin role');
         setView('login');
         return;
     }
@@ -34,36 +39,35 @@ function setView(viewName) {
 }
 
 /**
- * Main render function
- * Controls view visibility and calls appropriate render functions
+ * ✅ UPDATED: Main render function with error handling
  */
 function render() {
-    const currentState = getState();
-    const viewName = currentState.currentView;
-
-    // Hide all views first
-    document.querySelectorAll('.view').forEach(view => {
-        view.style.display = 'none';
-    });
-
-    // Get the current view element
-    const currentViewEl = document.getElementById(`${viewName}View`);
-    
-    if (!currentViewEl) {
-        console.error(`View element not found: ${viewName}View`);
-        return;
-    }
-
-    // Show the view
-    currentViewEl.style.display = 'block';
-
-    // Flex display for centered views (login and ticket)
-    if (['login', 'ticket'].includes(viewName)) {
-        currentViewEl.style.display = 'flex';
-    }
-
-    // Call the appropriate render function based on view
     try {
+        const currentState = getState();
+        const viewName = currentState.currentView;
+
+        // Hide all views first
+        document.querySelectorAll('.view').forEach(view => {
+            view.style.display = 'none';
+        });
+
+        // Get the current view element
+        const currentViewEl = document.getElementById(`${viewName}View`);
+        
+        if (!currentViewEl) {
+            console.error(`View element not found: ${viewName}View`);
+            return;
+        }
+
+        // Show the view
+        currentViewEl.style.display = 'block';
+
+        // ✅ NEW: Flex display for centered views
+        if (['login', 'ticket'].includes(viewName)) {
+            currentViewEl.style.display = 'flex';
+        }
+
+        // ✅ UPDATED: Call the appropriate render function
         switch (viewName) {
             case 'login':
                 renderLoginView();
@@ -138,14 +142,18 @@ function render() {
 }
 
 /**
- * Initialize the application
- * Called when DOM is ready
+ * ✅ UPDATED: Initialize the application with comprehensive error handling
  */
 function initApp() {
     console.log('=== ParkEase App Initializing ===');
     
     try {
-        // Log initial state
+        // ✅ NEW: Check if required APIs are available
+        if (!window.API) {
+            throw new Error('API module not loaded');
+        }
+
+        // ✅ NEW: Log initial state
         console.log('Initial State:', getState());
         
         // Set initial view to login
@@ -154,11 +162,18 @@ function initApp() {
         // Perform initial render
         render();
         
-        // Setup global error handler
+        // Setup global error handlers
         setupGlobalErrorHandler();
         
         // Setup resize listener for responsive design
         setupResizeListener();
+        
+        // ✅ NEW: Restore authentication token if available
+        const token = window.API.getAuthToken();
+        if (token && !getUser()) {
+            console.log('Restoring session from token...');
+            restoreSessionFromToken();
+        }
         
         console.log('=== ParkEase App Ready ===');
         
@@ -169,22 +184,42 @@ function initApp() {
 }
 
 /**
- * Setup global error handler
+ * ✅ NEW: Restore user session from stored token
+ */
+async function restoreSessionFromToken() {
+    try {
+        const response = await window.API.auth.getMe();
+        if (response.success && response.data) {
+            setUser(response.data);
+            setView('home');
+        }
+    } catch (error) {
+        console.warn('Failed to restore session:', error);
+        window.API.clearAuthToken();
+    }
+}
+
+/**
+ * ✅ UPDATED: Setup global error handler
  */
 function setupGlobalErrorHandler() {
     window.addEventListener('error', (event) => {
-        console.error('Global error:', event.error);
-        showError('An unexpected error occurred');
+        console.error('Global error caught:', event.error);
+        // ✅ NEW: Don't show error for expected errors
+        if (event.error && !event.error.handled) {
+            showError('An unexpected error occurred');
+        }
     });
 
     window.addEventListener('unhandledrejection', (event) => {
         console.error('Unhandled promise rejection:', event.reason);
         showError('An unexpected error occurred');
+        event.preventDefault();
     });
 }
 
 /**
- * Setup resize listener for responsive design
+ * ✅ UPDATED: Setup resize listener for responsive design
  */
 function setupResizeListener() {
     let resizeTimer;
@@ -195,7 +230,7 @@ function setupResizeListener() {
             console.log('Window resized');
             // Re-render if needed for responsive changes
             const currentState = getState();
-            if (currentState.currentView === 'home') {
+            if (['home', 'admin'].includes(currentState.currentView)) {
                 render();
             }
         }, 250);
@@ -203,8 +238,7 @@ function setupResizeListener() {
 }
 
 /**
- * Handle app navigation
- * @param {string} path - Navigation path
+ * ✅ NEW: Handle app navigation
  */
 function navigate(path) {
     console.log('Navigating to:', path);
@@ -212,20 +246,7 @@ function navigate(path) {
 }
 
 /**
- * Handle app state changes
- * Useful for debugging
- */
-function onStateChange(callback) {
-    const originalSetState = setState;
-    setState = function(updates) {
-        const newState = originalSetState(updates);
-        callback(newState);
-        return newState;
-    };
-}
-
-/**
- * Debug function to log current state
+ * ✅ NEW: Debug function to log current state
  */
 function debugState() {
     console.log('=== Current App State ===');
@@ -241,27 +262,41 @@ function debugState() {
 }
 
 /**
- * App version and info
+ * ✅ NEW: App metadata
  */
 const APP_INFO = {
     name: 'ParkEase',
     version: '1.0.0',
     description: 'Smart Parking Booking Application',
-    author: 'Your Name',
-    year: new Date().getFullYear()
+    author: 'ParkEase Team',
+    year: new Date().getFullYear(),
+    apiUrl: window.API?.API_BASE_URL || 'unknown'
 };
 
 /**
- * Log app info
+ * ✅ NEW: Log app info with styling
  */
 function logAppInfo() {
-    console.log(`%c${APP_INFO.name} v${APP_INFO.version}`, 'font-size: 20px; font-weight: bold; color: #3B82F6;');
-    console.log(`%c${APP_INFO.description}`, 'font-size: 12px; color: #666;');
-    console.log(`%c© ${APP_INFO.year} ${APP_INFO.author}`, 'font-size: 10px; color: #999;');
+    console.log(
+        `%c${APP_INFO.name} v${APP_INFO.version}`,
+        'font-size: 20px; font-weight: bold; color: #3B82F6;'
+    );
+    console.log(
+        `%c${APP_INFO.description}`,
+        'font-size: 12px; color: #666;'
+    );
+    console.log(
+        `%cAPI: ${APP_INFO.apiUrl}`,
+        'font-size: 10px; color: #999;'
+    );
+    console.log(
+        `%c© ${APP_INFO.year} ${APP_INFO.author}`,
+        'font-size: 10px; color: #999;'
+    );
 }
 
 /**
- * Start the application when DOM is ready
+ * ✅ UPDATED: Start the application when DOM is ready
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded - Starting ParkEase');
@@ -270,21 +305,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Handle page visibility changes
- * Pause/resume operations based on tab visibility
+ * ✅ NEW: Handle page visibility changes
  */
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         console.log('App backgrounded');
     } else {
         console.log('App foregrounded');
-        // Refresh data if needed
+        // ✅ NEW: Refresh critical data if needed
+        if (isAuthenticated()) {
+            const view = getStateProperty('currentView');
+            if (view === 'home') {
+                render();
+            }
+        }
     }
 });
 
 /**
- * Handle before unload
- * Warn user if leaving with unsaved data
+ * ✅ UPDATED: Handle before unload
  */
 window.addEventListener('beforeunload', (event) => {
     const booking = getStateProperty('booking');
@@ -295,7 +334,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 
 /**
- * Export for debugging in console
+ * ✅ UPDATED: Export for console debugging
  */
 window.ParkEase = {
     setState,
@@ -304,7 +343,10 @@ window.ParkEase = {
     navigate,
     debugState,
     logAppInfo,
-    APP_INFO
+    APP_INFO,
+    // ✅ NEW: Add helpful console functions
+    showError,
+    showSuccess: typeof showSuccess !== 'undefined' ? showSuccess : alert
 };
 
-console.log('Type "ParkEase.debugState()" in console to view app state');
+console.log('💡 Tip: Type "ParkEase.debugState()" in console to view app state');
