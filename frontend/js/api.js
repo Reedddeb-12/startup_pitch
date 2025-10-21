@@ -1,26 +1,44 @@
 /**
  * ParkEase Frontend - API Integration
- * Handles all API calls to the backend
+ * Production-ready API integration with error handling
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Get API base URL from environment or use default
+const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000/api'
+    : 'https://parkease-backend.vercel.app/api'; // Replace with your backend URL
 
-// Store token in memory
 let authToken = null;
+
+/**
+ * Safe localStorage access
+ */
+function canUseStorage() {
+    try {
+        const test = '__test__';
+        localStorage.setItem(test, test);
+        localStorage.removeItem(test);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 
 /**
  * Set authentication token
  */
 function setAuthToken(token) {
     authToken = token;
-    localStorage.setItem('parkease_token', token);
+    if (canUseStorage()) {
+        localStorage.setItem('parkease_token', token);
+    }
 }
 
 /**
  * Get authentication token
  */
 function getAuthToken() {
-    if (!authToken) {
+    if (!authToken && canUseStorage()) {
         authToken = localStorage.getItem('parkease_token');
     }
     return authToken;
@@ -31,11 +49,13 @@ function getAuthToken() {
  */
 function clearAuthToken() {
     authToken = null;
-    localStorage.removeItem('parkease_token');
+    if (canUseStorage()) {
+        localStorage.removeItem('parkease_token');
+    }
 }
 
 /**
- * Make API request
+ * Make API request with error handling
  */
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -50,20 +70,33 @@ async function apiRequest(endpoint, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const config = {
-        ...options,
-        headers
-    };
-
     try {
-        const response = await fetch(url, config);
+        const response = await fetch(url, {
+            method: options.method || 'GET',
+            headers,
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            ...options
+        });
+
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+            clearAuthToken();
+            if (typeof setView === 'function') {
+                setView('login');
+            }
+        }
+
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'API request failed');
+            const error = new Error(data.message || `HTTP ${response.status}`);
+            error.status = response.status;
+            error.data = data;
+            throw error;
         }
 
         return data;
+
     } catch (error) {
         console.error('API Error:', error);
         throw error;
@@ -75,25 +108,35 @@ async function apiRequest(endpoint, options = {}) {
  */
 const authAPI = {
     async register(userData) {
-        const response = await apiRequest('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify(userData)
-        });
-        if (response.data.token) {
-            setAuthToken(response.data.token);
+        try {
+            const response = await apiRequest('/auth/register', {
+                method: 'POST',
+                body: userData
+            });
+            if (response.data?.token) {
+                setAuthToken(response.data.token);
+            }
+            return response;
+        } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
         }
-        return response;
     },
 
     async login(credentials) {
-        const response = await apiRequest('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify(credentials)
-        });
-        if (response.data.token) {
-            setAuthToken(response.data.token);
+        try {
+            const response = await apiRequest('/auth/login', {
+                method: 'POST',
+                body: credentials
+            });
+            if (response.data?.token) {
+                setAuthToken(response.data.token);
+            }
+            return response;
+        } catch (error) {
+            console.error('Login error:', error);
+            throw error;
         }
-        return response;
     },
 
     async getMe() {
@@ -103,16 +146,21 @@ const authAPI = {
     async updatePassword(passwordData) {
         return await apiRequest('/auth/updatepassword', {
             method: 'PUT',
-            body: JSON.stringify(passwordData)
+            body: passwordData
         });
     },
 
     async logout() {
-        const response = await apiRequest('/auth/logout', {
-            method: 'POST'
-        });
-        clearAuthToken();
-        return response;
+        try {
+            const response = await apiRequest('/auth/logout', {
+                method: 'POST'
+            });
+            clearAuthToken();
+            return response;
+        } catch (error) {
+            clearAuthToken();
+            return { success: true };
+        }
     }
 };
 
@@ -127,7 +175,7 @@ const userAPI = {
     async updateProfile(userData) {
         return await apiRequest('/users/profile', {
             method: 'PUT',
-            body: JSON.stringify(userData)
+            body: userData
         });
     },
 
@@ -150,7 +198,8 @@ const userAPI = {
 const parkingLotAPI = {
     async getAll(params = {}) {
         const queryString = new URLSearchParams(params).toString();
-        return await apiRequest(`/parking-lots${queryString ? '?' + queryString : ''}`);
+        const endpoint = `/parking-lots${queryString ? '?' + queryString : ''}`;
+        return await apiRequest(endpoint);
     },
 
     async getById(id) {
@@ -158,20 +207,22 @@ const parkingLotAPI = {
     },
 
     async getNearby(lat, lon, maxDistance = 10000) {
-        return await apiRequest(`/parking-lots/nearby?lat=${lat}&lon=${lon}&maxDistance=${maxDistance}`);
+        return await apiRequest(
+            `/parking-lots/nearby?lat=${lat}&lon=${lon}&maxDistance=${maxDistance}`
+        );
     },
 
     async create(lotData) {
         return await apiRequest('/parking-lots', {
             method: 'POST',
-            body: JSON.stringify(lotData)
+            body: lotData
         });
     },
 
     async update(id, lotData) {
         return await apiRequest(`/parking-lots/${id}`, {
             method: 'PUT',
-            body: JSON.stringify(lotData)
+            body: lotData
         });
     },
 
@@ -201,21 +252,21 @@ const bookingAPI = {
     async create(bookingData) {
         return await apiRequest('/bookings', {
             method: 'POST',
-            body: JSON.stringify(bookingData)
+            body: bookingData
         });
     },
 
     async update(id, bookingData) {
         return await apiRequest(`/bookings/${id}`, {
             method: 'PUT',
-            body: JSON.stringify(bookingData)
+            body: bookingData
         });
     },
 
     async cancel(id, reason = '') {
         return await apiRequest(`/bookings/${id}`, {
             method: 'DELETE',
-            body: JSON.stringify({ reason })
+            body: { reason }
         });
     },
 
@@ -225,10 +276,6 @@ const bookingAPI = {
 
     async getHistory() {
         return await apiRequest('/bookings/history');
-    },
-
-    async getAllBookings() {
-        return await apiRequest('/bookings/admin/all');
     }
 };
 
@@ -239,14 +286,14 @@ const paymentAPI = {
     async createOrder(bookingId) {
         return await apiRequest('/payments/create-order', {
             method: 'POST',
-            body: JSON.stringify({ bookingId })
+            body: { bookingId }
         });
     },
 
     async verifyPayment(paymentData) {
         return await apiRequest('/payments/verify', {
             method: 'POST',
-            body: JSON.stringify(paymentData)
+            body: paymentData
         });
     },
 
@@ -261,17 +308,13 @@ const paymentAPI = {
     async processRefund(id, amount) {
         return await apiRequest(`/payments/${id}/refund`, {
             method: 'POST',
-            body: JSON.stringify({ amount })
+            body: { amount }
         });
-    },
-
-    async getAllPayments() {
-        return await apiRequest('/payments/admin/all');
     }
 };
 
 /**
- * Export APIs
+ * Export APIs for global use
  */
 window.API = {
     auth: authAPI,
@@ -281,5 +324,6 @@ window.API = {
     payment: paymentAPI,
     setAuthToken,
     getAuthToken,
-    clearAuthToken
+    clearAuthToken,
+    API_BASE_URL
 };
