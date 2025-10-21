@@ -4,7 +4,7 @@
  */
 
 // Get API base URL - Change this to your backend URL
-const API_BASE_URL = 'https://your-backend-url.vercel.app/api';
+const API_BASE_URL = 'https://vercel.com/reeddhijits-projects/startup-pitch';
 
 let authToken = null;
 
