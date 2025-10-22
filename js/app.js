@@ -415,3 +415,30 @@ window.ParkEase = {
 };
 
 console.log('💡 Tip: Type "ParkEase.debugState()" in console to view app state');
+function cleanupAnimations(currentView) {
+    // Cleanup login animations
+    if (currentView === 'login' && typeof window.cleanupLoginAnimation === 'function') {
+        window.cleanupLoginAnimation();
+    }
+    
+    // Cleanup any global animation instances
+    if (window.parkEaseAnimations) {
+        Object.keys(window.parkEaseAnimations).forEach(key => {
+            const animation = window.parkEaseAnimations[key];
+            if (animation && typeof animation.destroy === 'function') {
+                try {
+                    animation.destroy();
+                } catch (error) {
+                    console.error(`Failed to cleanup animation: ${key}`, error);
+                }
+            }
+        });
+        window.parkEaseAnimations = {};
+    }
+    
+    // Cleanup map instances if leaving details view
+    if (currentView === 'details') {
+        clearMapInstance();
+    }
+}
+
