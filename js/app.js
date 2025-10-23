@@ -1,34 +1,37 @@
 /**
  * ParkEase - Main Application
- * Core app logic and view management - UPDATED FOR PRODUCTION
+ * Core app logic and view management
  */
 
 /**
- * ✅ UPDATED: Set current view with validation and auth checks
+ * Set current view with validation and auth checks
  */
 function setView(viewName) {
     const currentState = getState();
     
-    // ✅ NEW: Validate view exists
+    // Validate view exists
     const validViews = ['login', 'home', 'details', 'payment', 'ticket', 'bookings', 'profile', 'admin'];
     if (!validViews.includes(viewName)) {
         console.error('Invalid view:', viewName);
         return;
     }
 
-    // ✅ NEW: Redirect to login if trying to access protected views
+    // Redirect to login if trying to access protected views
     if (viewName !== 'login' && !isAuthenticated()) {
         console.warn('Attempted to access protected view without authentication:', viewName);
         setView('login');
         return;
     }
 
-    // ✅ NEW: Redirect to login if trying to access admin without proper role
+    // Redirect to login if trying to access admin without proper role
     if (viewName === 'admin' && !isAdmin()) {
         console.warn('Attempted to access admin view without admin role');
         setView('login');
         return;
     }
+
+    // Clean up previous view animations
+    cleanupAnimations(currentState.currentView);
 
     // Update state with new view
     setState({ currentView: viewName });
@@ -39,7 +42,7 @@ function setView(viewName) {
 }
 
 /**
- * ✅ UPDATED: Main render function with error handling
+ * Main render function with error handling
  */
 function render() {
     try {
@@ -62,12 +65,12 @@ function render() {
         // Show the view
         currentViewEl.style.display = 'block';
 
-        // ✅ NEW: Flex display for centered views
+        // Flex display for centered views
         if (['login', 'ticket'].includes(viewName)) {
             currentViewEl.style.display = 'flex';
         }
 
-        // ✅ UPDATED: Call the appropriate render function
+        // Call the appropriate render function
         switch (viewName) {
             case 'login':
                 renderLoginView();
@@ -142,7 +145,7 @@ function render() {
 }
 
 /**
- * ✅ NEW: Load initial parking lots data
+ * Load initial parking lots data
  */
 async function loadInitialData() {
     try {
@@ -165,7 +168,7 @@ async function loadInitialData() {
 }
 
 /**
- * ✅ NEW: Restore user session from stored token
+ * Restore user session from stored token
  */
 async function restoreSessionFromToken() {
     try {
@@ -185,13 +188,13 @@ async function restoreSessionFromToken() {
 }
 
 /**
- * ✅ UPDATED: Initialize the application with comprehensive error handling
+ * Initialize the application
  */
 async function initApp() {
     console.log('=== ParkEase App Initializing ===');
     
     try {
-        // ✅ NEW: Check if required APIs are available
+        // Check if required APIs are available
         if (!window.API) {
             throw new Error('API module not loaded');
         }
@@ -210,7 +213,7 @@ async function initApp() {
         // Setup resize listener for responsive design
         setupResizeListener();
         
-        // ✅ NEW: Restore authentication token if available
+        // Restore authentication token if available
         const token = window.API.getAuthToken();
         if (token) {
             console.log('🔑 Found stored token, attempting to restore session...');
@@ -238,7 +241,7 @@ async function initApp() {
 }
 
 /**
- * ✅ UPDATED: Setup global error handler
+ * Setup global error handler
  */
 function setupGlobalErrorHandler() {
     window.addEventListener('error', (event) => {
@@ -256,7 +259,7 @@ function setupGlobalErrorHandler() {
 }
 
 /**
- * ✅ UPDATED: Setup resize listener for responsive design
+ * Setup resize listener for responsive design
  */
 function setupResizeListener() {
     let resizeTimer;
@@ -274,7 +277,7 @@ function setupResizeListener() {
 }
 
 /**
- * ✅ NEW: Handle app navigation
+ * Handle app navigation
  */
 function navigate(path) {
     console.log('Navigating to:', path);
@@ -282,7 +285,7 @@ function navigate(path) {
 }
 
 /**
- * ✅ NEW: Debug function to log current state
+ * Debug function to log current state
  */
 function debugState() {
     console.log('=== Current App State ===');
@@ -298,7 +301,7 @@ function debugState() {
 }
 
 /**
- * ✅ NEW: Enhanced error and success notifications
+ * Enhanced error and success notifications
  */
 function showError(message) {
     console.error('❌ Error:', message);
@@ -327,7 +330,7 @@ function showSuccess(message) {
 }
 
 /**
- * ✅ NEW: App metadata
+ * App metadata
  */
 const APP_INFO = {
     name: 'ParkEase',
@@ -339,7 +342,7 @@ const APP_INFO = {
 };
 
 /**
- * ✅ NEW: Log app info with styling
+ * Log app info with styling
  */
 function logAppInfo() {
     console.log(
@@ -361,7 +364,7 @@ function logAppInfo() {
 }
 
 /**
- * ✅ UPDATED: Start the application when DOM is ready
+ * Start the application when DOM is ready
  */
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded - Starting ParkEase');
@@ -370,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ✅ NEW: Handle page visibility changes
+ * Handle page visibility changes
  */
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -387,7 +390,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /**
- * ✅ UPDATED: Handle before unload
+ * Handle before unload
  */
 window.addEventListener('beforeunload', (event) => {
     const booking = getStateProperty('booking');
@@ -398,7 +401,7 @@ window.addEventListener('beforeunload', (event) => {
 });
 
 /**
- * ✅ UPDATED: Export for console debugging
+ * Export for console debugging
  */
 window.ParkEase = {
     setState,
@@ -415,6 +418,10 @@ window.ParkEase = {
 };
 
 console.log('💡 Tip: Type "ParkEase.debugState()" in console to view app state');
+
+/**
+ * Cleanup animations when changing views
+ */
 function cleanupAnimations(currentView) {
     // Cleanup login animations
     if (currentView === 'login' && typeof window.cleanupLoginAnimation === 'function') {
@@ -441,4 +448,3 @@ function cleanupAnimations(currentView) {
         clearMapInstance();
     }
 }
-
