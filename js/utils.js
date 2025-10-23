@@ -277,10 +277,12 @@ function isPastDate(date) {
 }
 
 /**
- * Add hours to date
+ * Add hours to date - CORRECTED
  */
 function addHours(date, hours) {
-    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+    const result = new Date(date);
+    result.setHours(result.getHours() + hours);
+    return result;
 }
 
 /**
