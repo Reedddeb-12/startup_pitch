@@ -1,100 +1,118 @@
 /**
- * ParkEase - API Module
- * Centralized API client with authentication
+ * ParkEase - Frontend-Only API Module
+ * All data stored in memory and localStorage (no backend required)
  */
 
 class ParkEaseAPI {
     constructor() {
-        // Use environment variable or fallback to localhost
-        this.API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:5000/api'
-            : 'https://your-backend-url.com/api';
-        
         this.AUTH_TOKEN_KEY = 'parkease_auth_token';
-        this.endpoints = {
-            auth: '/auth',
-            parkingLot: '/parking-lots',
-            booking: '/bookings',
-            user: '/users'
-        };
+        this.USER_DATA_KEY = 'parkease_user_data';
+        this.BOOKINGS_KEY = 'parkease_bookings';
+        this.PARKING_LOTS_KEY = 'parkease_parking_lots';
+        
+        console.log('🔧 API initialized in FRONTEND-ONLY MODE');
+        this.initializeMockData();
+    }
+
+    /**
+     * Initialize empty data structures in localStorage if not present
+     */
+    initializeMockData() {
+        // Initialize empty parking lots array if not present
+        const existingLots = this.getLocalStorage(this.PARKING_LOTS_KEY);
+        if (!existingLots) {
+            this.setLocalStorage(this.PARKING_LOTS_KEY, []);
+            console.log('📦 Initialized empty parking lots array');
+        }
+
+        // Initialize empty bookings array if not present
+        const existingBookings = this.getLocalStorage(this.BOOKINGS_KEY);
+        if (!existingBookings) {
+            this.setLocalStorage(this.BOOKINGS_KEY, []);
+            console.log('📦 Initialized empty bookings array');
+        }
+    }
+
+    /**
+     * LocalStorage helpers
+     */
+    getLocalStorage(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.warn('localStorage read error:', e);
+            return null;
+        }
+    }
+
+    setLocalStorage(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+            return true;
+        } catch (e) {
+            console.warn('localStorage write error:', e);
+            return false;
+        }
+    }
+
+    removeLocalStorage(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('localStorage remove error:', e);
+        }
     }
 
     /**
      * Get stored auth token
      */
     getAuthToken() {
-        try {
-            return localStorage.getItem(this.AUTH_TOKEN_KEY);
-        } catch (e) {
-            console.warn('localStorage not available:', e);
-            return null;
-        }
+        return this.getLocalStorage(this.AUTH_TOKEN_KEY);
     }
 
     /**
      * Set auth token
      */
     setAuthToken(token) {
-        try {
-            if (token) {
-                localStorage.setItem(this.AUTH_TOKEN_KEY, token);
-            }
-        } catch (e) {
-            console.warn('localStorage not available:', e);
-        }
+        this.setLocalStorage(this.AUTH_TOKEN_KEY, token);
     }
 
     /**
      * Clear auth token
      */
     clearAuthToken() {
-        try {
-            localStorage.removeItem(this.AUTH_TOKEN_KEY);
-        } catch (e) {
-            console.warn('localStorage not available:', e);
-        }
+        this.removeLocalStorage(this.AUTH_TOKEN_KEY);
+        this.removeLocalStorage(this.USER_DATA_KEY);
     }
 
     /**
-     * Generic fetch wrapper with error handling
+     * Generate mock response
      */
-    async request(method, endpoint, body = null) {
-        const url = `${this.API_BASE_URL}${endpoint}`;
-        const headers = {
-            'Content-Type': 'application/json'
-        };
+    mockResponse(data, message = 'Success') {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve({
+                    success: true,
+                    message,
+                    data
+                });
+            }, 300); // Simulate network delay
+        });
+    }
 
-        // Add auth token if available
-        const token = this.getAuthToken();
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const options = {
-            method,
-            headers
-        };
-
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-
-        try {
-            const response = await fetch(url, options);
-            const data = await response.json();
-
-            if (!response.ok) {
-                const error = new Error(data.message || 'API Error');
-                error.status = response.status;
-                error.data = data;
-                throw error;
-            }
-
-            return data;
-        } catch (error) {
-            console.error(`API Error [${method} ${endpoint}]:`, error);
-            throw error;
-        }
+    /**
+     * Generate mock error response
+     */
+    mockError(message, status = 400) {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                const error = new Error(message);
+                error.status = status;
+                error.data = { message };
+                reject(error);
+            }, 300);
+        });
     }
 
     /**
@@ -102,24 +120,79 @@ class ParkEaseAPI {
      */
     auth = {
         register: async (userData) => {
-            return this.request('POST', `${this.endpoints.auth}/register`, userData);
+            console.log('📝 Register:', userData.email);
+            
+            // Check if user already exists
+            const existingUser = this.getLocalStorage(this.USER_DATA_KEY);
+            if (existingUser && existingUser.email === userData.email) {
+                return this.mockError('Email already registered', 409);
+            }
+
+            const user = {
+                id: Date.now(),
+                name: userData.name,
+                email: userData.email,
+                phone: userData.phone,
+                role: 'user',
+                createdAt: new Date().toISOString()
+            };
+
+            this.setLocalStorage(this.USER_DATA_KEY, user);
+            
+            return this.mockResponse(user, 'Registration successful');
         },
         
         login: async (credentials) => {
-            const response = await this.request('POST', `${this.endpoints.auth}/login`, credentials);
-            if (response.data?.token) {
-                this.setAuthToken(response.data.token);
+            console.log('🔐 Login:', credentials.email);
+            
+            // Admin login
+            if (credentials.email === 'admin@parkease.com' && credentials.password === 'admin123') {
+                const adminUser = {
+                    id: 999,
+                    name: 'Admin',
+                    email: 'admin@parkease.com',
+                    role: 'admin',
+                    phone: '9999999999'
+                };
+                
+                const token = 'admin_token_' + Date.now();
+                this.setAuthToken(token);
+                this.setLocalStorage(this.USER_DATA_KEY, adminUser);
+                
+                return this.mockResponse({ user: adminUser, token }, 'Admin login successful');
             }
-            return response;
+
+            // Regular user login - check if user exists
+            const existingUser = this.getLocalStorage(this.USER_DATA_KEY);
+            if (!existingUser || existingUser.email !== credentials.email) {
+                return this.mockError('Invalid email or password', 401);
+            }
+
+            const token = 'user_token_' + Date.now();
+            this.setAuthToken(token);
+            
+            return this.mockResponse({ user: existingUser, token }, 'Login successful');
         },
         
         logout: async () => {
+            console.log('🚪 Logout');
             this.clearAuthToken();
-            return { success: true };
+            return this.mockResponse(null, 'Logged out successfully');
         },
         
         getMe: async () => {
-            return this.request('GET', `${this.endpoints.auth}/me`);
+            console.log('👤 Get current user');
+            const token = this.getAuthToken();
+            if (!token) {
+                return this.mockError('Not authenticated', 401);
+            }
+
+            const user = this.getLocalStorage(this.USER_DATA_KEY);
+            if (!user) {
+                return this.mockError('User not found', 404);
+            }
+
+            return this.mockResponse(user);
         }
     };
 
@@ -128,59 +201,67 @@ class ParkEaseAPI {
      */
     parkingLot = {
         getAll: async () => {
-            try {
-                return await this.request('GET', this.endpoints.parkingLot);
-            } catch (error) {
-                console.warn('Failed to fetch parking lots from backend, using mock data:', error);
-                // Return mock data for demo/offline testing
-                return {
-                    success: true,
-                    data: [
-                        {
-                            id: 1,
-                            name: 'Downtown Parking',
-                            address: '123 Main St, City Center',
-                            lat: 22.5726,
-                            lon: 88.3639,
-                            distance: '0.5 km',
-                            rating: 4.5,
-                            pricePerHour: 50,
-                            totalSlots: 50,
-                            availableSlots: 12,
-                            amenities: ['CCTV', 'EV Charging', '24/7 Security']
-                        },
-                        {
-                            id: 2,
-                            name: 'Mall Parking',
-                            address: '456 Shopping Ave, Mall District',
-                            lat: 22.5650,
-                            lon: 88.3750,
-                            distance: '1.2 km',
-                            rating: 4.2,
-                            pricePerHour: 40,
-                            totalSlots: 100,
-                            availableSlots: 35,
-                            amenities: ['Free WiFi', 'CCTV', 'Covered Parking']
-                        }
-                    ]
-                };
-            }
+            console.log('🅿️ Get all parking lots');
+            const lots = this.getLocalStorage(this.PARKING_LOTS_KEY) || [];
+            return this.mockResponse(lots);
         },
         
         getById: async (id) => {
-            return this.request('GET', `${this.endpoints.parkingLot}/${id}`);
+            console.log('🅿️ Get parking lot:', id);
+            const lots = this.getLocalStorage(this.PARKING_LOTS_KEY) || [];
+            const lot = lots.find(l => l.id === parseInt(id));
+            
+            if (!lot) {
+                return this.mockError('Parking lot not found', 404);
+            }
+            
+            return this.mockResponse(lot);
         },
         
         create: async (lotData) => {
-            return this.request('POST', this.endpoints.parkingLot, lotData);
+            console.log('➕ Create parking lot:', lotData.name);
+            const lots = this.getLocalStorage(this.PARKING_LOTS_KEY) || [];
+            
+            const newLot = {
+                ...lotData,
+                id: Date.now(),
+                availableSlots: lotData.totalSlots,
+                rating: 4.0,
+                createdAt: new Date().toISOString()
+            };
+            
+            lots.push(newLot);
+            this.setLocalStorage(this.PARKING_LOTS_KEY, lots);
+            
+            return this.mockResponse(newLot, 'Parking lot created successfully');
         },
         
         update: async (id, lotData) => {
-            return this.request('PUT', `${this.endpoints.parkingLot}/${id}`, lotData);
+            console.log('✏️ Update parking lot:', id);
+            const lots = this.getLocalStorage(this.PARKING_LOTS_KEY) || [];
+            const index = lots.findIndex(l => l.id === parseInt(id));
+            
+            if (index === -1) {
+                return this.mockError('Parking lot not found', 404);
+            }
+            
+            lots[index] = { ...lots[index], ...lotData };
+            this.setLocalStorage(this.PARKING_LOTS_KEY, lots);
+            
+            return this.mockResponse(lots[index], 'Parking lot updated successfully');
         },
         
         delete: async (id) => {
-            return this.request('DELETE', `${this.endpoints.parkingLot}/${id}`);
+            console.log('🗑️ Delete parking lot:', id);
+            const lots = this.getLocalStorage(this.PARKING_LOTS_KEY) || [];
+            const filteredLots = lots.filter(l => l.id !== parseInt(id));
+            
+            if (lots.length === filteredLots.length) {
+                return this.mockError('Parking lot not found', 404);
+            }
+            
+            this.setLocalStorage(this.PARKING_LOTS_KEY, filteredLots);
+            return this.mockResponse(null, 'Parking lot deleted successfully');
         }
     };
 
@@ -189,23 +270,81 @@ class ParkEaseAPI {
      */
     booking = {
         getAll: async () => {
-            return this.request('GET', this.endpoints.booking);
+            console.log('📋 Get all bookings');
+            const user = this.getLocalStorage(this.USER_DATA_KEY);
+            if (!user) {
+                return this.mockError('Not authenticated', 401);
+            }
+
+            const allBookings = this.getLocalStorage(this.BOOKINGS_KEY) || [];
+            
+            // If admin, return all bookings. Otherwise, filter by user
+            if (user.role === 'admin') {
+                return this.mockResponse(allBookings);
+            }
+            
+            const userBookings = allBookings.filter(b => b.userId === user.id);
+            return this.mockResponse(userBookings);
         },
         
         getById: async (id) => {
-            return this.request('GET', `${this.endpoints.booking}/${id}`);
+            console.log('📋 Get booking:', id);
+            const bookings = this.getLocalStorage(this.BOOKINGS_KEY) || [];
+            const booking = bookings.find(b => b._id === id || b.id === id);
+            
+            if (!booking) {
+                return this.mockError('Booking not found', 404);
+            }
+            
+            return this.mockResponse(booking);
         },
         
         create: async (bookingData) => {
-            return this.request('POST', this.endpoints.booking, bookingData);
+            console.log('➕ Create booking');
+            const bookings = this.getLocalStorage(this.BOOKINGS_KEY) || [];
+            
+            const newBooking = {
+                ...bookingData,
+                _id: 'booking_' + Date.now(),
+                id: Date.now(),
+                createdAt: new Date().toISOString()
+            };
+            
+            bookings.push(newBooking);
+            this.setLocalStorage(this.BOOKINGS_KEY, bookings);
+            
+            return this.mockResponse(newBooking, 'Booking created successfully');
         },
         
         update: async (id, bookingData) => {
-            return this.request('PUT', `${this.endpoints.booking}/${id}`, bookingData);
+            console.log('✏️ Update booking:', id);
+            const bookings = this.getLocalStorage(this.BOOKINGS_KEY) || [];
+            const index = bookings.findIndex(b => b._id === id || b.id === id);
+            
+            if (index === -1) {
+                return this.mockError('Booking not found', 404);
+            }
+            
+            bookings[index] = { ...bookings[index], ...bookingData };
+            this.setLocalStorage(this.BOOKINGS_KEY, bookings);
+            
+            return this.mockResponse(bookings[index], 'Booking updated successfully');
         },
         
         cancel: async (id) => {
-            return this.request('POST', `${this.endpoints.booking}/${id}/cancel`);
+            console.log('❌ Cancel booking:', id);
+            const bookings = this.getLocalStorage(this.BOOKINGS_KEY) || [];
+            const index = bookings.findIndex(b => b._id === id || b.id === id);
+            
+            if (index === -1) {
+                return this.mockError('Booking not found', 404);
+            }
+            
+            bookings[index].status = 'cancelled';
+            bookings[index].cancelledAt = new Date().toISOString();
+            this.setLocalStorage(this.BOOKINGS_KEY, bookings);
+            
+            return this.mockResponse(bookings[index], 'Booking cancelled successfully');
         }
     };
 
@@ -214,16 +353,30 @@ class ParkEaseAPI {
      */
     user = {
         getProfile: async () => {
-            return this.request('GET', `${this.endpoints.user}/profile`);
+            console.log('👤 Get user profile');
+            const user = this.getLocalStorage(this.USER_DATA_KEY);
+            if (!user) {
+                return this.mockError('Not authenticated', 401);
+            }
+            return this.mockResponse(user);
         },
         
         updateProfile: async (userData) => {
-            return this.request('PUT', `${this.endpoints.user}/profile`, userData);
+            console.log('✏️ Update user profile');
+            const user = this.getLocalStorage(this.USER_DATA_KEY);
+            if (!user) {
+                return this.mockError('Not authenticated', 401);
+            }
+            
+            const updatedUser = { ...user, ...userData };
+            this.setLocalStorage(this.USER_DATA_KEY, updatedUser);
+            
+            return this.mockResponse(updatedUser, 'Profile updated successfully');
         }
     };
 }
 
 // Initialize and expose to window
 window.API = new ParkEaseAPI();
-console.log('✅ API Module initialized');
-console.log('API Base URL:', window.API.API_BASE_URL);
+console.log('✅ Frontend-Only API Module initialized');
+console.log('📦 Mock parking lots loaded:', window.API.getLocalStorage(window.API.PARKING_LOTS_KEY)?.length || 0);
