@@ -4,7 +4,7 @@
  */
 
 /**
- * Initialize payment
+ * Initialize payment - CORRECTED
  */
 function handlePayment() {
     const booking = getStateProperty('booking');
@@ -19,12 +19,14 @@ function handlePayment() {
     payButton.disabled = true;
     payButton.innerText = 'Processing...';
 
+    const lot = booking.lot || booking.parkingLot;
+
     const options = {
-        key: 'rzp_test_ILzaLVLAtji6G9', // Move to environment variable
-        amount: booking.amount * 100, // Convert to paise
+        key: 'rzp_test_ILzaLVLAtji6G9',
+        amount: booking.amount * 100,
         currency: 'INR',
         name: 'ParkEase',
-        description: `Parking for ${booking.lot.name}`,
+        description: `Parking at ${lot?.name || 'Parking Lot'}`,
         image: 'https://placehold.co/100x100/3B82F6/FFFFFF?text=P',
         handler: function(response) {
             handlePaymentSuccess(response);
@@ -39,7 +41,7 @@ function handlePayment() {
         },
         modal: {
             ondismiss: function() {
-                handlePaymentDismiss(payButton);
+                handlePaymentDismiss(payButton, booking);
             }
         }
     };
@@ -47,7 +49,7 @@ function handlePayment() {
     try {
         const rzp = new window.Razorpay(options);
         rzp.on('payment.failed', function(response) {
-            handlePaymentFailure(response, payButton);
+            handlePaymentFailure(response, payButton, booking);
         });
         rzp.open();
     } catch (error) {
@@ -59,40 +61,44 @@ function handlePayment() {
 }
 
 /**
- * Handle successful payment
+ * Handle successful payment - CORRECTED
  */
 function handlePaymentSuccess(response) {
     const booking = getStateProperty('booking');
 
     // Update booking with payment details
     booking.paymentId = response.razorpay_payment_id;
+    booking.orderId = response.razorpay_order_id;
+    booking.signature = response.razorpay_signature;
     booking.status = 'completed';
     booking.completedAt = getCurrentDateTime().fullDate;
+    booking.paymentStatus = 'paid';
 
     // Update lot availability
-    const lot = booking.lot;
-    const lotIndex = getStateProperty('parkingLots').findIndex(l => l.id === lot.id);
-    if (lotIndex !== -1) {
-        const lots = getStateProperty('parkingLots');
-        lots[lotIndex] = {
-            ...lots[lotIndex],
-            availableSlots: Math.max(0, lots[lotIndex].availableSlots - 1)
-        };
-        setState({ parkingLots: lots });
+    const lot = booking.lot || booking.parkingLot;
+    if (lot) {
+        const lotIndex = getStateProperty('parkingLots').findIndex(l => l.id === lot.id);
+        if (lotIndex !== -1) {
+            const lots = getStateProperty('parkingLots');
+            lots[lotIndex] = {
+                ...lots[lotIndex],
+                availableSlots: Math.max(0, lots[lotIndex].availableSlots - 1)
+            };
+            setState({ parkingLots: lots });
+        }
     }
 
     // Add booking to state
     addBooking(booking);
 
-    console.log('Payment successful:', response);
+    console.log('✅ Payment successful:', response);
     setView('ticket');
 }
 
 /**
  * Handle payment failure
  */
-function handlePaymentFailure(response, payButton) {
-    const booking = getStateProperty('booking');
+function handlePaymentFailure(response, payButton, booking) {
     const errorMessage = response.error.reason || 'Payment failed';
 
     console.error('Payment failed:', response.error);
@@ -105,9 +111,7 @@ function handlePaymentFailure(response, payButton) {
 /**
  * Handle payment modal dismiss
  */
-function handlePaymentDismiss(payButton) {
-    const booking = getStateProperty('booking');
-
+function handlePaymentDismiss(payButton, booking) {
     payButton.disabled = false;
     payButton.innerText = `Pay Securely ${formatCurrency(booking.amount)}`;
 
