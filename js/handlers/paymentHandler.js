@@ -1,10 +1,10 @@
 /**
- * ParkEase - Payment Handler
+ * ParkEase - Payment Handler (Frontend-Only)
  * Handles Razorpay payment integration
  */
 
 /**
- * Initialize payment - CORRECTED
+ * Initialize payment
  */
 function handlePayment() {
     const booking = getStateProperty('booking');
@@ -61,9 +61,9 @@ function handlePayment() {
 }
 
 /**
- * Handle successful payment - CORRECTED
+ * Handle successful payment
  */
-function handlePaymentSuccess(response) {
+async function handlePaymentSuccess(response) {
     const booking = getStateProperty('booking');
 
     // Update booking with payment details
@@ -74,25 +74,52 @@ function handlePaymentSuccess(response) {
     booking.completedAt = getCurrentDateTime().fullDate;
     booking.paymentStatus = 'paid';
 
-    // Update lot availability
+    // Update lot availability in localStorage
     const lot = booking.lot || booking.parkingLot;
     if (lot) {
-        const lotIndex = getStateProperty('parkingLots').findIndex(l => l.id === lot.id);
+        const parkingLots = getStateProperty('parkingLots');
+        const lotIndex = parkingLots.findIndex(l => l.id === lot.id);
+        
         if (lotIndex !== -1) {
-            const lots = getStateProperty('parkingLots');
-            lots[lotIndex] = {
-                ...lots[lotIndex],
-                availableSlots: Math.max(0, lots[lotIndex].availableSlots - 1)
+            parkingLots[lotIndex] = {
+                ...parkingLots[lotIndex],
+                availableSlots: Math.max(0, parkingLots[lotIndex].availableSlots - 1)
             };
-            setState({ parkingLots: lots });
+            setState({ parkingLots });
+            
+            // Update in API/localStorage
+            try {
+                await window.API.parkingLot.update(lot.id, {
+                    availableSlots: parkingLots[lotIndex].availableSlots
+                });
+            } catch (error) {
+                console.warn('Failed to update parking lot:', error);
+            }
         }
     }
 
-    // Add booking to state
-    addBooking(booking);
-
-    console.log('✅ Payment successful:', response);
-    setView('ticket');
+    // Save booking to API/localStorage
+    try {
+        const savedBooking = await saveBookingToAPI(booking);
+        if (savedBooking) {
+            // Update local state with saved booking
+            booking._id = savedBooking._id || savedBooking.id;
+            addBooking(booking);
+            
+            console.log('✅ Payment successful and booking saved:', response);
+            setView('ticket');
+        } else {
+            // Fallback: just add to local state
+            addBooking(booking);
+            console.log('✅ Payment successful (local only):', response);
+            setView('ticket');
+        }
+    } catch (error) {
+        console.error('Error saving booking:', error);
+        // Still show ticket even if save fails
+        addBooking(booking);
+        setView('ticket');
+    }
 }
 
 /**
