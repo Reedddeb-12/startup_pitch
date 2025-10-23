@@ -8,14 +8,12 @@
     
     <title>ParkEase - Parking App</title>
     
-    <!-- ✅ CORRECTED: Added /startup_pitch/ prefix for GitHub Pages -->
     <script src="https://cdn.tailwindcss.com" integrity="sha384-xOqnzDuc+4yR6qcMHrWDyYJOKTqBrXUvkBPsKDJzwCAiTH9zBOJ6bfV8YXwKAEbW" crossorigin="anonymous"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- ✅ CORRECTED: Leaflet Map with /startup_pitch/ prefix -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
         crossorigin="anonymous" />
@@ -23,17 +21,14 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
         crossorigin="anonymous"></script>
     
-    <!-- ✅ CORRECTED: Razorpay Checkout -->
     <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
     
-    <!-- ✅ CORRECTED: Local CSS files with /startup_pitch/ prefix -->
-    <link rel="stylesheet" href="/startup_pitch/css/styles.css">
-    <link rel="stylesheet" href="/startup_pitch/css/animations.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/backgroundPaths.css">
     <script src="js/backgroundPaths.js"></script>
     
     <style>
-        /* ✅ Loading indicator */
         .app-loader {
             display: flex;
             align-items: center;
@@ -55,79 +50,56 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
     </style>
 </head>
 <body>
-    <!-- ✅ Loading indicator shown while app initializes -->
     <div id="appLoader" class="app-loader">
         <div class="spinner"></div>
     </div>
 
     <div id="app">
-        <!-- Login View -->
         <div id="loginView" class="view view-container bg-slate-100 flex items-center justify-center p-4"></div>
-
-        <!-- Home View -->
         <div id="homeView" class="view view-container bg-slate-100"></div>
-
-        <!-- Details View -->
         <div id="detailsView" class="view view-container bg-slate-100"></div>
-
-        <!-- Payment View -->
         <div id="paymentView" class="view view-container bg-slate-100"></div>
-
-        <!-- Ticket View -->
         <div id="ticketView" class="view view-container bg-gradient-to-br from-blue-500 to-green-400 flex items-center justify-center p-6"></div>
-
-        <!-- Bookings View -->
         <div id="bookingsView" class="view view-container bg-slate-100"></div>
-        
-        <!-- Profile View -->
         <div id="profileView" class="view view-container bg-slate-100"></div>
-
-        <!-- Admin View -->
         <div id="adminView" class="view view-container bg-slate-100"></div>
-
-        <!-- Add Lot Modal -->
         <div id="addLotModal" class="view fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"></div>
     </div>
 
-    <!-- ✅ CORRECTED: All scripts with /startup_pitch/ prefix for GitHub Pages -->
-    
     <!-- Configuration & Constants -->
-    <script src="/startup_pitch/js/constants.js"></script>
-    <script src="/startup_pitch/js/state.js"></script>
-    <script src="/startup_pitch/assets/icons.js"></script>
-    <script src="/startup_pitch/js/utils.js"></script>
+    <script src="js/constants.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/assets/icons.js"></script>
+    <script src="js/utils.js"></script>
     
     <!-- API & Config -->
-    <script src="/startup_pitch/config/razorpay.config.js"></script>
-    <script src="/startup_pitch/config/leaflet.config.js"></script>
-    <script src="/startup_pitch/js/api.js"></script>
+    <script src="config/razorpay.config.js"></script>
+    <script src="config/leaflet.config.js"></script>
+    <script src="js/api.js"></script>
     
     <!-- Event Handlers -->
-    <script src="/startup_pitch/js/handlers/authHandler.js"></script>
-    <script src="/startup_pitch/js/handlers/paymentHandler.js"></script>
-    <script src="/startup_pitch/js/handlers/bookingHandler.js"></script>
-    <script src="/startup_pitch/js/handlers/adminHandler.js"></script>
+    <script src="js/handlers/authHandler.js"></script>
+    <script src="js/handlers/paymentHandler.js"></script>
+    <script src="js/handlers/bookingHandler.js"></script>
+    <script src="js/handlers/adminHandler.js"></script>
     
     <!-- View Renderers -->
-    <script src="/startup_pitch/js/views/loginView.js"></script>
-    <script src="/startup_pitch/js/views/homeView.js"></script>
-    <script src="/startup_pitch/js/views/detailsView.js"></script>
-    <script src="/startup_pitch/js/views/paymentView.js"></script>
-    <script src="/startup_pitch/js/views/ticketView.js"></script>
-    <script src="/startup_pitch/js/views/bookingsView.js"></script>
-    <script src="/startup_pitch/js/views/profileView.js"></script>
-    <script src="/startup_pitch/js/views/adminView.js"></script>
+    <script src="js/views/loginView.js"></script>
+    <script src="js/views/homeView.js"></script>
+    <script src="js/views/detailsView.js"></script>
+    <script src="js/views/paymentView.js"></script>
+    <script src="js/views/ticketView.js"></script>
+    <script src="js/views/bookingsView.js"></script>
+    <script src="js/views/profileView.js"></script>
+    <script src="js/views/adminView.js"></script>
     
-    <!-- Main App - Last -->
-    <script src="/startup_pitch/js/app.js"></script>
+    <!-- Main App -->
+    <script src="js/app.js"></script>
     
-    <!-- ✅ Remove loader when app is ready -->
     <script>
-        // Hide loader when app initializes
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 const loader = document.getElementById('appLoader');
@@ -137,7 +109,6 @@
             }, 1000);
         });
         
-        // Hide loader on error
         window.addEventListener('error', () => {
             const loader = document.getElementById('appLoader');
             if (loader) {
@@ -147,4 +118,3 @@
     </script>
 </body>
 </html>
-
