@@ -12,7 +12,9 @@ let state = {
     parkingLots: [],
     bookings: [],
     isLoading: false,
-    error: null
+    error: null,
+    isAuthenticated: false,
+    adminStats: null
 };
 
 let mapInstance = null;
@@ -49,10 +51,12 @@ function resetState() {
         booking: null,
         searchQuery: '',
         user: null,
-        parkingLots: state.parkingLots, // Keep parking lots
+        parkingLots: state.parkingLots,
         bookings: [],
         isLoading: false,
-        error: null
+        error: null,
+        isAuthenticated: false,
+        adminStats: null
     };
     return state;
 }
@@ -70,7 +74,11 @@ function getMapInstance() {
 
 function clearMapInstance() {
     if (mapInstance) {
-        mapInstance.remove();
+        try {
+            mapInstance.remove();
+        } catch (e) {
+            console.warn('Error removing map:', e);
+        }
         mapInstance = null;
     }
 }
@@ -119,6 +127,7 @@ function getBookingsByUser(userId) {
  */
 function setUser(user) {
     state.user = user;
+    state.isAuthenticated = true;
 }
 
 function getUser() {
@@ -127,6 +136,7 @@ function getUser() {
 
 function clearUser() {
     state.user = null;
+    state.isAuthenticated = false;
 }
 
 function isUserLoggedIn() {
