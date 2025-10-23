@@ -90,11 +90,15 @@ async function handleAuthSubmit() {
 
             if (!name) {
                 showError('Please enter your full name');
+                authButton.disabled = false;
+                authButton.innerText = originalText;
                 return;
             }
 
             if (!validatePhone(phone)) {
                 showError('Please enter a valid 10-digit phone number');
+                authButton.disabled = false;
+                authButton.innerText = originalText;
                 return;
             }
 
@@ -106,7 +110,17 @@ async function handleAuthSubmit() {
                 phone
             });
 
-            showSuccess('Account created successfully! Welcome to ParkEase.');
+            if (response.success) {
+                showSuccess('Account created successfully! Please login.');
+                isSignupMode = false;
+                updateAuthUI(
+                    document.getElementById('signupFields'),
+                    authButton,
+                    document.getElementById('authToggleText'),
+                    document.getElementById('authToggleButton')
+                );
+                resetForm('loginForm');
+            }
         } else {
             // Call login API
             response = await window.API.auth.login({
@@ -114,26 +128,24 @@ async function handleAuthSubmit() {
                 password
             });
 
-            showSuccess('Login successful!');
-        }
-
-        if (response.success && response.data?.user) {
-            // Store user in state
-            setUser(response.data.user);
-            
-            // Reset form
-            resetForm('loginForm');
-            isSignupMode = false;
-            
-            // Navigate to home
-            setView('home');
+            if (response.success && response.data?.user) {
+                setUser(response.data.user);
+                setState({ isAuthenticated: true });
+                resetForm('loginForm');
+                isSignupMode = false;
+                
+                // Load parking lots before showing home
+                await loadInitialData();
+                setView('home');
+                showSuccess('Login successful!');
+            }
         }
 
     } catch (error) {
         console.error('Auth error:', error);
         
         if (error.status === 400) {
-            showError(error.message || 'Invalid email or password');
+            showError(error.data?.message || 'Invalid email or password');
         } else if (error.status === 401) {
             showError('Incorrect email or password');
         } else if (error.status === 409) {
@@ -152,7 +164,7 @@ async function handleAuthSubmit() {
  */
 async function handleAdminLogin() {
     const adminEmail = 'admin@parkease.com';
-    const adminPassword = 'admin123'; // In production, use proper admin credentials
+    const adminPassword = 'admin123';
 
     try {
         const response = await window.API.auth.login({
@@ -162,7 +174,12 @@ async function handleAdminLogin() {
 
         if (response.success && response.data?.user) {
             setUser(response.data.user);
+            setState({ isAuthenticated: true });
+            
+            // Load parking lots before showing admin
+            await loadInitialData();
             setView('admin');
+            showSuccess('Admin login successful!');
         }
     } catch (error) {
         console.error('Admin login error:', error);
@@ -180,29 +197,39 @@ async function handleLogout() {
         console.error('Logout error:', error);
     }
 
+    // Clear local storage
+    window.API.clearAuthToken();
+    
+    // Clear state
     clearUser();
-    setState({ searchQuery: '', selectedLot: null, booking: null });
+    setState({ 
+        searchQuery: '', 
+        selectedLot: null, 
+        booking: null,
+        isAuthenticated: false,
+        bookings: [] 
+    });
+    
     isSignupMode = false;
     setView('login');
     scrollToTop();
-}
-
-/**
- * Show success message
- */
-function showSuccess(message) {
-    console.log('Success:', message);
-    // TODO: Replace with toast notification
-    alert(message);
+    showSuccess('Logged out successfully');
 }
 
 /**
  * Show error message
  */
 function showError(message) {
-    console.error('Error:', message);
-    // TODO: Replace with toast notification
-    alert(message);
+    console.error('❌ Error:', message);
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 left-4 bg-red-500 text-white px-4 py-3 rounded-lg shadow-lg z-50 animate-slideInUp';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 /**
@@ -217,5 +244,5 @@ function isAuthenticated() {
  */
 function isAdmin() {
     const user = getUser();
-    return user && user.role === 'admin';
+    return user && (user.role === 'admin' || user.role === 'ADMIN');
 }
