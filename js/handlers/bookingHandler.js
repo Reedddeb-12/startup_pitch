@@ -4,7 +4,7 @@
  */
 
 /**
- * Create a new booking
+ * Create a new booking - CORRECTED
  */
 function createBooking(lot, duration) {
     const user = getUser();
@@ -14,10 +14,13 @@ function createBooking(lot, duration) {
         id: generateId(),
         userId: user.id,
         lot: cloneObject(lot),
+        parkingLot: cloneObject(lot),
         duration: parseInt(duration),
         amount: lot.pricePerHour * duration,
         date,
         time,
+        startTime: fullDate,
+        endTime: addHours(fullDate, duration),
         fullDate,
         qrCode: generateQRCode(),
         status: 'pending',
@@ -62,7 +65,7 @@ function cancelBooking(bookingId) {
     bookings[bookingIndex].cancelledAt = getCurrentDateTime().fullDate;
 
     // Restore available slots
-    const lot = bookings[bookingIndex].lot;
+    const lot = bookings[bookingIndex].lot || bookings[bookingIndex].parkingLot;
     const parkingLots = getStateProperty('parkingLots');
     const lotIndex = parkingLots.findIndex(l => l.id === lot.id);
 
